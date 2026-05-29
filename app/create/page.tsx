@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ethers } from 'ethers';
 import Link from 'next/link';
 
@@ -8,7 +9,11 @@ const TOP_20_STOCKS = [
   'V', 'WMT', 'JPM', 'UNH', 'MA', 'PG', 'XOM', 'JNJ', 'HD', 'COST'
 ];
 
-export default function TokenWizard() {
+// Inner form component wrapped in Suspense to safely consume search queries in Next.js 16
+function WizardFormContent() {
+  const searchParams = useSearchParams();
+  const urlIdParam = searchParams.get('id');
+
   const [step, setStep] = useState(1);
   const [walletConnected, setWalletConnected] = useState(false);
   const [userAddress, setUserAddress] = useState('');
@@ -26,12 +31,44 @@ export default function TokenWizard() {
   const [mongoTokenId, setMongoTokenId] = useState('');
   const [livePrice, setLivePrice] = useState<number>(1.00);
 
+  // 🚀 Check if we are editing an existing token passed from the registry page
+  useEffect(() => {
+    if (!urlIdParam || !walletConnected) return;
+
+    const preLoadExistingTokenDetails = async () => {
+      try {
+        const res = await fetch(`/api/tokens/calculate-price?id=${urlIdParam}`);
+        const data = await res.json();
+        
+        if (data.name) {
+          setMongoTokenId(urlIdParam);
+          setName(data.name);
+          setSymbol(data.symbol);
+          setLogoBase64(data.logoBase64);
+          setDeployedAddress(data.contractAddress);
+          setAllocations(data.driftedAllocations);
+          setUsdAllocation(data.driftedUsdAllocation);
+          setHasGenerated(true);
+          
+          // Jump straight to the reallocation panel
+          setStep(2); 
+        }
+      } catch (err) {
+        console.error("Failed to pre-load allocation parameters:", err);
+      }
+    };
+
+    preLoadExistingTokenDetails();
+  }, [urlIdParam, walletConnected]);
+
   const handleWalletLink = async () => {
     if ((window as any).ethereum) {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const accounts = await provider.send("eth_requestAccounts", []);
       setUserAddress(accounts[0]);
       setWalletConnected(true);
+    } else {
+      alert("Please initialize a browser wallet extension.");
     }
   };
 
@@ -70,7 +107,6 @@ export default function TokenWizard() {
     return () => clearInterval(tickerThreadInstance);
   }, [step, mongoTokenId]);
 
-  // 🔄 Fetches drifted weights from the backend before letting the user reallocate
   const handleModifyReallocateClick = async () => {
     try {
       const res = await fetch(`/api/tokens/calculate-price?id=${mongoTokenId}`);
@@ -82,7 +118,7 @@ export default function TokenWizard() {
       setStep(2);
     } catch (err) {
       console.error("Could not load drifted allocations:", err);
-      setStep(2); // Fallback to step 2 anyway
+      setStep(2);
     }
   };
 
@@ -119,7 +155,7 @@ export default function TokenWizard() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: mongoTokenId || undefined, // Sends ID if performing an update
+        id: mongoTokenId || undefined,
         name, symbol, logoBase64, creatorAddress: userAddress,
         allocations, usdAllocation, contractAddress: simulatedProxyAddress
       })
@@ -184,11 +220,9 @@ export default function TokenWizard() {
                       <span className="text-indigo-600">{asset.percentage}%</span>
                     </div>
                     <input type="range" min="1" max="100" value={asset.percentage} onChange={e=>adjustPercentageSlider(index, parseInt(e.target.value))} className="w-full accent-indigo-600" />
-                    {asset.tokenSymbol !== 'USDC' && (
-                      <button onClick={()=>convertPositionToUsd(index)} className="text-xs bg-amber-500 text-white px-3 py-1 rounded-md font-medium">
-                        Convert To USD
-                      </button>
-                    )}
+                    <button onClick={()=>convertPositionToUsd(index)} className="text-xs bg-amber-500 text-white px-3 py-1 rounded-md font-medium">
+                      Convert To USD
+                    </button>
                   </div>
                 ))}
               </div>
@@ -202,7 +236,9 @@ export default function TokenWizard() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={()=>setStep(1)} className="w-1/4 border py-2.5 rounded-xl">Back</button>
+                <button onClick={() => { if (urlIdParam) { window.location.href = '/tokens'; } else { setStep(1); } }} className="w-1/4 border py-2.5 rounded-xl">
+                  Cancel
+                </button>
                 <button onClick={dispatchTokenGenerationCycle} className="w-3/4 bg-indigo-600 text-white py-2.5 rounded-xl font-bold shadow-sm">
                   {hasGenerated ? 'Update Allocation' : 'Generate Token'}
                 </button>
@@ -227,7 +263,6 @@ export default function TokenWizard() {
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 </h3>
                 <div className="text-4xl font-black text-slate-900 mt-1">${livePrice.toFixed(4)}</div>
-                {/* 🚀 Dynamic color coding based on baseline variance value */}
                 <div className={`text-sm font-bold mt-1 ${pctChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}%
                 </div>
@@ -241,5 +276,14 @@ export default function TokenWizard() {
         </div>
       )}
     </div>
+  );
+}
+
+// Global default exported page component wrapped in a fallback boundary
+export default function TokenWizard() {
+  return (
+    <Suspense fallback={<div className="text-center p-20 text-slate-400">Loading compilation environment parameters...</div>}>
+      <WizardFormContent />
+    </Suspense>
   );
 }

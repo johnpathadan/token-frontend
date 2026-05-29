@@ -16,17 +16,14 @@ export async function GET(request: Request) {
     const assetValues: { [key: string]: number } = {};
     let databaseNeedsUpdate = false;
 
-    // Loop through each asset allocation to calculate the current performance ratio
     for (const asset of token.allocations) {
       const livePrice = parseFloat(await getAlpacaStockPrice(asset.tokenSymbol));
       
-      // 🚀 Fix: If an old document is missing a baseline, save it to the DB permanently ONCE
       if (!asset.initialPrice || asset.initialPrice === 0) {
         asset.initialPrice = livePrice;
         databaseNeedsUpdate = true;
       }
 
-      // Calculate the true price ratio based on the fixed baseline
       const priceRatio = livePrice / asset.initialPrice;
       const initialValueContribution = asset.percentage / 100;
       const currentValueContribution = initialValueContribution * priceRatio;
@@ -35,15 +32,12 @@ export async function GET(request: Request) {
       currentTotalNAV += currentValueContribution;
     }
     
-    // Add the cash portion (always worth $1.00)
     currentTotalNAV += (token.usdAllocation / 100);
 
-    // If we patched any legacy baselines, save the changes to MongoDB
     if (databaseNeedsUpdate) {
       await token.save();
     }
 
-    // Calculate the drifted allocation weights to return to the reallocation sliders
     const driftedAllocations = token.allocations.map((asset: any) => {
       const liveAssetValue = assetValues[asset.tokenSymbol] || 0;
       const currentWeight = currentTotalNAV > 0 ? (liveAssetValue / currentTotalNAV) * 100 : 0;
@@ -57,6 +51,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ 
       price: currentTotalNAV,
+      // 🚀 Added metadata variables here so the wizard can initialize cleanly from a link
+      name: token.name,
+      symbol: token.symbol,
+      logoBase64: token.logoBase64,
+      contractAddress: token.contractAddress,
       driftedAllocations,
       driftedUsdAllocation
     });

@@ -49,19 +49,16 @@ export default function TokensDirectory() {
 
       {loading ? (
         <div className="text-center py-20 text-sm font-medium text-slate-400 animate-pulse">
-          Querying secure vault databases and evaluating live price changes...
+          Querying secure databases and evaluating live price changes...
         </div>
       ) : tokens.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl bg-white p-6">
-          <p className="text-sm text-slate-400 font-medium">No synthetic asset structures have been generated yet.</p>
-          <Link href="/create" className="mt-3 inline-block text-xs font-bold text-indigo-600 hover:underline">
-            Launch the first synthetic token index baseline now
-          </Link>
+          <p className="text-sm text-slate-400 font-medium">No tokens have been generated yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {tokens.map((token) => (
-            <div key={token.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow transition flex flex-col justify-between">
+            <div key={token.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow transition flex flex-col justify-between space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -82,7 +79,6 @@ export default function TokensDirectory() {
 
                   <div className="text-right">
                     <div className="text-xl font-black text-slate-900">${token.price.toFixed(4)}</div>
-                    {/* 🚀 Red/Green Color Selection Based on Sign Variant Values */}
                     <div className={`text-xs font-bold mt-0.5 ${token.percentageChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {token.percentageChange >= 0 ? '+' : ''}{token.percentageChange.toFixed(2)}%
                     </div>
@@ -91,19 +87,23 @@ export default function TokensDirectory() {
 
                 <div className="border-t border-slate-100 pt-3 space-y-1.5 text-[11px] font-mono text-slate-400">
                   <div className="flex justify-between">
-                    <span>Creator Account Address:</span>
-                    <span className="text-slate-600 truncate max-w-[180px]" title={token.creatorAddress}>
-                      {token.creatorAddress}
-                    </span>
+                    <span>Creator Address:</span>
+                    <span className="text-slate-600 truncate max-w-[180px]">{token.creatorAddress}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Deployment Contract:</span>
-                    <span className="text-slate-600 truncate max-w-[180px]" title={token.contractAddress}>
-                      {token.contractAddress}
-                    </span>
+                    <span>Contract Address:</span>
+                    <span className="text-slate-600 truncate max-w-[180px]">{token.contractAddress}</span>
                   </div>
                 </div>
               </div>
+
+              {/* 🚀 New Button: Links back to the /create panel passing the token ID query parameter */}
+              <Link 
+                href={`/create?id=${token.id}`}
+                className="w-full block text-center bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-sm"
+              >
+                Modify & Reallocate Engine Matrix
+              </Link>
             </div>
           ))}
         </div>
