@@ -9,7 +9,6 @@ const TOP_20_STOCKS = [
   'V', 'WMT', 'JPM', 'UNH', 'MA', 'PG', 'XOM', 'JNJ', 'HD', 'COST'
 ];
 
-// Inner form component wrapped in Suspense to safely consume search queries in Next.js 16
 function WizardFormContent() {
   const searchParams = useSearchParams();
   const urlIdParam = searchParams.get('id');
@@ -31,7 +30,26 @@ function WizardFormContent() {
   const [mongoTokenId, setMongoTokenId] = useState('');
   const [livePrice, setLivePrice] = useState<number>(1.00);
 
-  // 🚀 Check if we are editing an existing token passed from the registry page
+  // 🚀 New Auto-Connection Hook: Checks if your wallet is already paired with this site on page load
+  useEffect(() => {
+    const checkActiveWalletSession = async () => {
+      if ((window as any).ethereum) {
+        try {
+          // Query MetaMask/Wallet for accounts already unlocked for this app
+          const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+          if (accounts && accounts.length > 0) {
+            setUserAddress(accounts[0]);
+            setWalletConnected(true);
+          }
+        } catch (err) {
+          console.error("Silent background session recovery check failed:", err);
+        }
+      }
+    };
+    checkActiveWalletSession();
+  }, []);
+
+  // Sync and pre-load database entries once the wallet state is validated
   useEffect(() => {
     if (!urlIdParam || !walletConnected) return;
 
@@ -50,11 +68,11 @@ function WizardFormContent() {
           setUsdAllocation(data.driftedUsdAllocation);
           setHasGenerated(true);
           
-          // Jump straight to the reallocation panel
+          // Jump straight to the allocation sliders
           setStep(2); 
         }
       } catch (err) {
-        console.error("Failed to pre-load allocation parameters:", err);
+        console.error("Failed to pre-load parameters:", err);
       }
     };
 
@@ -279,7 +297,6 @@ function WizardFormContent() {
   );
 }
 
-// Global default exported page component wrapped in a fallback boundary
 export default function TokenWizard() {
   return (
     <Suspense fallback={<div className="text-center p-20 text-slate-400">Loading compilation environment parameters...</div>}>
