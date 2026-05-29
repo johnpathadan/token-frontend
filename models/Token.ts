@@ -8,7 +8,8 @@ const TokenSchema = new Schema({
   contractAddress: { type: String, default: '' },
   allocations: [{
     tokenSymbol: { type: String, required: true },
-    percentage: { type: Number, required: true }
+    percentage: { type: Number, required: true },
+    initialPrice: { type: Number, required: true } // 🚀 Stores the stock price baseline
   }],
   usdAllocation: { type: Number, required: true }
 });

@@ -6,7 +6,7 @@ export async function getAlpacaStockPrice(ticker: string): Promise<string> {
     if (uppercaseTicker === 'USD' || uppercaseTicker === 'CASH') return '1.00';
 
     const response = await axios.get(
-      `https://data.sandbox.alpaca.markets/v2/stocks/${uppercaseTicker}/trades/latest`,
+      `https://data.sandbox.alpaca.markets/v2/stocks/${uppercaseTicker}/trades/latest?feed=iex`,
       {
         headers: {
           'APCA-API-KEY-ID': process.env.ALPACA_API_KEY || '',

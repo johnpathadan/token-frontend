@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import Link from 'next/link';
 
 const TOP_20_STOCKS = [
   'AAPL', 'TSLA', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'NFLX', 'AMD', 'BABA',
@@ -23,6 +24,7 @@ export default function TokenWizard() {
 
   const [deployedAddress, setDeployedAddress] = useState('');
   const [mongoTokenId, setMongoTokenId] = useState('');
+  const [livePrice, setLivePrice] = useState<number>(1.00);
 
   const handleWalletLink = async () => {
     if ((window as any).ethereum) {
@@ -30,8 +32,6 @@ export default function TokenWizard() {
       const accounts = await provider.send("eth_requestAccounts", []);
       setUserAddress(accounts[0]);
       setWalletConnected(true);
-    } else {
-      alert("Please initialize a browser wallet extension.");
     }
   };
 
@@ -48,6 +48,43 @@ export default function TokenWizard() {
     const activeAllocatedWeightSum = allocations.reduce((sum, item) => sum + item.percentage, 0);
     setUsdAllocation(100 - activeAllocatedWeightSum);
   }, [allocations]);
+
+  useEffect(() => {
+    if (step !== 3 || !mongoTokenId) return;
+
+    const queryLiveEnginePrice = async () => {
+      try {
+        const res = await fetch(`/api/tokens/calculate-price?id=${mongoTokenId}`);
+        const data = await res.json();
+        if (data.price) {
+          setLivePrice(data.price);
+        }
+      } catch (err) {
+        console.error("Pricing fetch failure: ", err);
+      }
+    };
+
+    queryLiveEnginePrice();
+    const tickerThreadInstance = setInterval(queryLiveEnginePrice, 5000);
+
+    return () => clearInterval(tickerThreadInstance);
+  }, [step, mongoTokenId]);
+
+  // 🔄 Fetches drifted weights from the backend before letting the user reallocate
+  const handleModifyReallocateClick = async () => {
+    try {
+      const res = await fetch(`/api/tokens/calculate-price?id=${mongoTokenId}`);
+      const data = await res.json();
+      if (data.driftedAllocations) {
+        setAllocations(data.driftedAllocations);
+        setUsdAllocation(data.driftedUsdAllocation);
+      }
+      setStep(2);
+    } catch (err) {
+      console.error("Could not load drifted allocations:", err);
+      setStep(2); // Fallback to step 2 anyway
+    }
+  };
 
   const addAssetRow = () => {
     if (usdAllocation <= 0) {
@@ -75,13 +112,14 @@ export default function TokenWizard() {
   };
 
   const dispatchTokenGenerationCycle = async () => {
-    const simulatedProxyAddress = "0x" + Math.random().toString(16).substring(2, 42);
+    const simulatedProxyAddress = deployedAddress || "0x" + Math.random().toString(16).substring(2, 42);
     setDeployedAddress(simulatedProxyAddress);
 
     const res = await fetch('/api/tokens/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        id: mongoTokenId || undefined, // Sends ID if performing an update
         name, symbol, logoBase64, creatorAddress: userAddress,
         allocations, usdAllocation, contractAddress: simulatedProxyAddress
       })
@@ -89,15 +127,22 @@ export default function TokenWizard() {
     
     const data = await res.json();
     if (data.success) {
-      setMongoTokenId(data.tokenId);
+      if (!mongoTokenId) setMongoTokenId(data.tokenId);
       setHasGenerated(true);
       setStep(3);
     }
   };
 
+  const pctChange = (livePrice - 1.00) * 100;
+
   return (
     <div className="p-8 max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl mt-16 shadow-md text-slate-800">
-      <h1 className="text-xl font-bold mb-6 text-center text-indigo-600 tracking-tight">Equity Token Synthesizer</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-bold text-indigo-600 tracking-tight">Equity Token Synthesizer</h1>
+        <Link href="/tokens" className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg font-medium transition">
+          View All Tokens 📋
+        </Link>
+      </div>
       
       {!walletConnected ? (
         <button onClick={handleWalletLink} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-semibold transition shadow-sm">
@@ -139,9 +184,11 @@ export default function TokenWizard() {
                       <span className="text-indigo-600">{asset.percentage}%</span>
                     </div>
                     <input type="range" min="1" max="100" value={asset.percentage} onChange={e=>adjustPercentageSlider(index, parseInt(e.target.value))} className="w-full accent-indigo-600" />
-                    <button onClick={()=>convertPositionToUsd(index)} className="text-xs bg-amber-500 text-white px-3 py-1 rounded-md font-medium">
-                      Convert To USD
-                    </button>
+                    {asset.tokenSymbol !== 'USDC' && (
+                      <button onClick={()=>convertPositionToUsd(index)} className="text-xs bg-amber-500 text-white px-3 py-1 rounded-md font-medium">
+                        Convert To USD
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -167,7 +214,7 @@ export default function TokenWizard() {
           {step === 3 && (
             <div className="text-center space-y-6">
               <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl font-mono text-xs break-all border border-emerald-100">
-                Deployed Proxy Address: {deployedAddress}
+                Proxy Address: {deployedAddress}
               </div>
 
               {logoBase64 && (
@@ -175,11 +222,18 @@ export default function TokenWizard() {
               )}
 
               <div>
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Calculated Dynamic NAV Price</h3>
-                <div className="text-4xl font-black text-slate-900 mt-1">$1.00</div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
+                  Calculated Dynamic NAV Price
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </h3>
+                <div className="text-4xl font-black text-slate-900 mt-1">${livePrice.toFixed(4)}</div>
+                {/* 🚀 Dynamic color coding based on baseline variance value */}
+                <div className={`text-sm font-bold mt-1 ${pctChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}%
+                </div>
               </div>
 
-              <button onClick={()=>setStep(2)} className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium">
+              <button onClick={handleModifyReallocateClick} className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium">
                 Modify & Reallocate Engine Matrix
               </button>
             </div>
