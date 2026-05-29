@@ -11,14 +11,27 @@ export async function GET() {
 
     for (const token of rawTokens) {
       let currentTotalNAV = 0;
+      let databaseNeedsUpdate = false;
 
       for (const asset of token.allocations) {
         const livePrice = parseFloat(await getAlpacaStockPrice(asset.tokenSymbol));
-        const priceRatio = asset.initialPrice > 0 ? livePrice / asset.initialPrice : 1;
+        
+        // 🚀 Fix: Permanently patch missing baselines on the registry overview screen
+        if (!asset.initialPrice || asset.initialPrice === 0) {
+          asset.initialPrice = livePrice;
+          databaseNeedsUpdate = true;
+        }
+
+        const priceRatio = livePrice / asset.initialPrice;
         currentTotalNAV += ((asset.percentage / 100) * priceRatio);
       }
       currentTotalNAV += (token.usdAllocation / 100);
 
+      if (databaseNeedsUpdate) {
+        await token.save();
+      }
+
+      // Calculate the net value change against your initial $1.00 baseline
       const percentageChange = (currentTotalNAV - 1.00) * 100;
 
       compiledTokens.push({

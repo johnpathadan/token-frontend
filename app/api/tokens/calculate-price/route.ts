@@ -14,13 +14,20 @@ export async function GET(request: Request) {
 
     let currentTotalNAV = 0;
     const assetValues: { [key: string]: number } = {};
+    let databaseNeedsUpdate = false;
 
-    // Calculate the current value contribution of each stock position
+    // Loop through each asset allocation to calculate the current performance ratio
     for (const asset of token.allocations) {
       const livePrice = parseFloat(await getAlpacaStockPrice(asset.tokenSymbol));
       
-      // Value multiplier change: Current Price / Price at Creation
-      const priceRatio = asset.initialPrice > 0 ? livePrice / asset.initialPrice : 1;
+      // 🚀 Fix: If an old document is missing a baseline, save it to the DB permanently ONCE
+      if (!asset.initialPrice || asset.initialPrice === 0) {
+        asset.initialPrice = livePrice;
+        databaseNeedsUpdate = true;
+      }
+
+      // Calculate the true price ratio based on the fixed baseline
+      const priceRatio = livePrice / asset.initialPrice;
       const initialValueContribution = asset.percentage / 100;
       const currentValueContribution = initialValueContribution * priceRatio;
 
@@ -28,13 +35,18 @@ export async function GET(request: Request) {
       currentTotalNAV += currentValueContribution;
     }
     
-    // Add the stable cash allocation contribution (always valued at $1.00)
-    const cashValueContribution = token.usdAllocation / 100;
-    currentTotalNAV += cashValueContribution;
+    // Add the cash portion (always worth $1.00)
+    currentTotalNAV += (token.usdAllocation / 100);
 
-    // Convert values back into percentages to show the drifted allocation mix
+    // If we patched any legacy baselines, save the changes to MongoDB
+    if (databaseNeedsUpdate) {
+      await token.save();
+    }
+
+    // Calculate the drifted allocation weights to return to the reallocation sliders
     const driftedAllocations = token.allocations.map((asset: any) => {
-      const currentWeight = (assetValues[asset.tokenSymbol] / currentTotalNAV) * 100;
+      const liveAssetValue = assetValues[asset.tokenSymbol] || 0;
+      const currentWeight = currentTotalNAV > 0 ? (liveAssetValue / currentTotalNAV) * 100 : 0;
       return {
         tokenSymbol: asset.tokenSymbol,
         percentage: Math.round(currentWeight)
