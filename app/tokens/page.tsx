@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {Spinner} from "@/components/ui/spinner";
 
 interface TokenDirectoryItem {
   id: string;
@@ -39,8 +40,8 @@ export default function TokensDirectory() {
     <div className="p-8 max-w-5xl mx-auto mt-12 text-slate-800">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">Synthetic Asset Index Registry</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Real-time valuation index tracked via the Alpaca Market API Engine</p>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">List Of All The Coins</h1>
+          <p className="text-xs text-slate-400 mt-0.5">Real-time value tracked via the Alpaca Market API Engine</p>
         </div>
         <Link href="/create" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2 rounded-xl shadow transition">
           ← Create Token Studio
@@ -48,8 +49,8 @@ export default function TokensDirectory() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-sm font-medium text-slate-400 animate-pulse">
-          Querying secure databases and evaluating live price changes...
+        <div className="text-center py-20 text-sm font-medium text-slate-400 animate-pulse flex justify-center items-center">
+          <Spinner className='size-8 text-black' />
         </div>
       ) : tokens.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl bg-white p-6">

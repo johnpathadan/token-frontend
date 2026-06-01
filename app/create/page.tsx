@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ethers } from 'ethers';
+import {Spinner} from "@/components/ui/spinner";
 import Link from 'next/link';
 
 const TOP_20_STOCKS = [
@@ -224,8 +225,10 @@ function WizardFormContent() {
 
   if (isInitializing) {
     return (
-      <div className="p-8 max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl mt-16 shadow-md text-center text-sm font-medium text-slate-400 animate-pulse">
-        Restoring wallet authorization session credentials...
+      <div className="p-8 max-w-xl mx-auto bg-black border border-slate-200 rounded-2xl mt-16 shadow-md text-center text-sm font-medium text-slate-400 animate-pulse flex items-center justify-center">
+        <Spinner className='size-8 block' />
+        <br />
+        <p>Connect your wallet</p>
       </div>
     );
   }
@@ -233,8 +236,8 @@ function WizardFormContent() {
   return (
     <div className="p-8 max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl mt-16 shadow-md text-slate-800">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold text-indigo-600 tracking-tight">Equity Token Synthesizer</h1>
-        <Link href="/tokens" className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg font-medium transition">
+        <h1 className="text-xl font-bold text-black tracking-tight">Create your RWA Token</h1>
+        <Link href="/tokens" className="text-xs bg-indigo-50 hover:bg-indigo-100 text-black px-3 py-1.5 rounded-lg font-medium transition">
           View All Tokens 📋
         </Link>
       </div>
@@ -245,7 +248,7 @@ function WizardFormContent() {
         </button>
       ) : (
         <div>
-          <p className="text-xs text-center font-mono text-slate-400 mb-4">Operator: {userAddress}</p>
+          <p className="text-xs text-center font-mono text-black mb-4">Operator: {userAddress}</p>
 
           {/* STEP 1 */}
           {step === 1 && (
@@ -255,8 +258,8 @@ function WizardFormContent() {
               <div className="border border-dashed p-4 rounded-lg bg-slate-50 text-center">
                 <input type="file" accept="image/*" onChange={parseUploadedIconFile} className="w-full text-xs" />
               </div>
-              <button onClick={()=>setStep(2)} disabled={!name || !symbol} className="w-full bg-slate-900 text-white py-2.5 rounded-xl disabled:opacity-40">
-                Configure Allocation Matrix →
+              <button onClick={()=>setStep(2)} disabled={!name || !symbol} className="w-full bg-black text-white py-2.5 rounded-xl disabled:opacity-40">
+                Configure Allocation →
               </button>
             </div>
           )}
@@ -268,9 +271,9 @@ function WizardFormContent() {
               <div className="flex justify-center">
                 <button 
                   onClick={addAssetRow} 
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-sm"
+                  className="w-full bg-rose-50 hover:bg-rose-100 text-black font-bold py-2.5 rounded-xl text-sm transition shadow-sm"
                 >
-                  ＋ Add Ticker Track
+                  ＋ Add Your Asset
                 </button>
               </div>
 
@@ -290,7 +293,7 @@ function WizardFormContent() {
                           const isAssignedElsewhere = allocations.some((a, i) => a.tokenSymbol === tickerOption && i !== index);
                           return (
                             <option key={tickerOption} value={tickerOption} disabled={isAssignedElsewhere}>
-                              {tickerOption} Asset Weight
+                              {tickerOption} Allocation
                             </option>
                           );
                         })}
@@ -311,7 +314,7 @@ function WizardFormContent() {
                     <div className="pt-1">
                       <button 
                         onClick={()=>convertPositionToUsd(index)} 
-                        className="text-[11px] bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-md font-semibold transition"
+                        className="text-[11px] bg-blue-950 hover:bg-blue-700 text-white px-2.5 py-1 rounded-md font-semibold transition"
                       >
                         Convert To USD
                       </button>
@@ -375,7 +378,7 @@ function WizardFormContent() {
 
 export default function TokenWizard() {
   return (
-    <Suspense fallback={<div className="text-center p-20 text-slate-400">Loading layout parameters...</div>}>
+    <Suspense fallback={<div className="text-center p-20 text-slate-400">Loading...</div>}>
       <WizardFormContent />
     </Suspense>
   );
