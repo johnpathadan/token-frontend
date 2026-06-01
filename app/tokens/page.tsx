@@ -36,7 +36,7 @@ export default function TokensDirectory() {
   }, []);
 
   return (
-    <div className="p-8 max-w-4xl mx-auto mt-12 text-slate-800">
+    <div className="p-8 max-w-5xl mx-auto mt-12 text-slate-800">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">Synthetic Asset Index Registry</h1>
@@ -56,56 +56,87 @@ export default function TokensDirectory() {
           <p className="text-sm text-slate-400 font-medium">No tokens have been generated yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {tokens.map((token) => (
-            <div key={token.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow transition flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    {token.logoBase64 ? (
-                      <img src={token.logoBase64} alt={token.name} className="w-10 h-10 rounded-full object-cover border bg-slate-50" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-sm">
-                        {token.symbol.substring(0, 2)}
+        /* Responsive table shell container wrapper */
+        <div className="w-full overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <table className="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                <th className="py-4 px-6">Asset Name / Symbol</th>
+                <th className="py-4 px-6 text-right">Live Price</th>
+                <th className="py-4 px-6 text-right">Change (Since Mint)</th>
+                <th className="py-4 px-6">Creator</th>
+                <th className="py-4 px-6 text-center" colSpan={2}>Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {tokens.map((token) => {
+                // Truncate logic: Keeps the '0x' protocol prefix followed by the first 5 numbers
+                const formattedCreator = token.creatorAddress 
+                  ? `${token.creatorAddress.substring(0, 7)}...` 
+                  : '0x000...';
+
+                return (
+                  <tr key={token.id} className="hover:bg-slate-50/50 transition">
+                    
+                    {/* 1st Column: Asset Profile Details */}
+                    <td className="py-4 px-6 font-medium text-slate-900">
+                      <div className="flex items-center gap-3">
+                        {token.logoBase64 ? (
+                          <img src={token.logoBase64} alt={token.name} className="w-8 h-8 rounded-full object-cover border bg-slate-50" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-xs">
+                            {token.symbol.substring(0, 2)}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">{token.name}</span>
+                          <span className="text-xs font-mono font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            {token.symbol}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <h2 className="font-bold text-slate-900 leading-tight">{token.name}</h2>
-                      <span className="text-xs font-mono font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
-                        {token.symbol}
-                      </span>
-                    </div>
-                  </div>
+                    </td>
 
-                  <div className="text-right">
-                    <div className="text-xl font-black text-slate-900">${token.price.toFixed(4)}</div>
-                    <div className={`text-xs font-bold mt-0.5 ${token.percentageChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {token.percentageChange >= 0 ? '+' : ''}{token.percentageChange.toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
+                    {/* 2nd Column: Real-Time Valuation Matrix */}
+                    <td className="py-4 px-6 text-right font-mono font-bold text-slate-900">
+                      ${token.price.toFixed(4)}
+                    </td>
 
-                <div className="border-t border-slate-100 pt-3 space-y-1.5 text-[11px] font-mono text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Creator Address:</span>
-                    <span className="text-slate-600 truncate max-w-[180px]">{token.creatorAddress}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Contract Address:</span>
-                    <span className="text-slate-600 truncate max-w-[180px]">{token.contractAddress}</span>
-                  </div>
-                </div>
-              </div>
+                    {/* 3rd Column: Vector Delta Flag Tracking */}
+                    <td className={`py-4 px-6 text-right font-bold font-mono ${token.percentageChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {token.percentageChange >= 0 ? '▲ +' : '▼ '}{token.percentageChange.toFixed(2)}%
+                    </td>
 
-              {/* 🚀 New Button: Links back to the /create panel passing the token ID query parameter */}
-              <Link 
-                href={`/create?id=${token.id}`}
-                className="w-full block text-center bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-sm"
-              >
-                Modify & Reallocate Engine Matrix
-              </Link>
-            </div>
-          ))}
+                    {/* 4th Column: Owner Mask */}
+                    <td className="py-4 px-6 font-mono text-xs text-slate-500" title={token.creatorAddress}>
+                      {formattedCreator}
+                    </td>
+
+                    {/* 5th Column: Reallocation Target Shortcut */}
+                    <td className="py-4 px-3 text-center">
+                      <Link 
+                        href={`/create?id=${token.id}`}
+                        className="inline-block bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-4 py-2 rounded-xl transition shadow-sm"
+                      >
+                        Modify Allocation
+                      </Link>
+                    </td>
+
+                    {/* 6th Column: Blank Interaction Hub */}
+                    <td className="py-4 pr-6 pl-3 text-center">
+                      <button 
+                        onClick={() => alert(`Prototype Mode: Market buy interface for ${token.symbol} is currently disabled.`)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+                      >
+                        Buy
+                      </button>
+                    </td>
+
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -14,6 +14,7 @@ function WizardFormContent() {
   const urlIdParam = searchParams.get('id');
 
   const [step, setStep] = useState(1);
+  const [isInitializing, setIsInitializing] = useState(true); // Gated shield
   const [walletConnected, setWalletConnected] = useState(false);
   const [userAddress, setUserAddress] = useState('');
   
@@ -30,61 +31,79 @@ function WizardFormContent() {
   const [mongoTokenId, setMongoTokenId] = useState('');
   const [livePrice, setLivePrice] = useState<number>(1.00);
 
-  // 🚀 New Auto-Connection Hook: Checks if your wallet is already paired with this site on page load
+  // 🚀 Unified Lifecycle Pipeline: Handles wallet verification and database preloads sequentially
   useEffect(() => {
-    const checkActiveWalletSession = async () => {
+    const initializeApplicationWorkspace = async () => {
+      let activeSessionAddress = '';
+      let isSessionAuthorized = false;
+
+      // 1. Resolve Wallet Connection Session Context
       if ((window as any).ethereum) {
         try {
-          // Query MetaMask/Wallet for accounts already unlocked for this app
+          const cachedAddress = localStorage.getItem('synthetic_wallet_address');
           const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+          
           if (accounts && accounts.length > 0) {
+            activeSessionAddress = accounts[0];
+            isSessionAuthorized = true;
             setUserAddress(accounts[0]);
+            setWalletConnected(true);
+            localStorage.setItem('synthetic_wallet_address', accounts[0]);
+          } else if (cachedAddress) {
+            activeSessionAddress = cachedAddress;
+            isSessionAuthorized = true;
+            setUserAddress(cachedAddress);
             setWalletConnected(true);
           }
         } catch (err) {
-          console.error("Silent background session recovery check failed:", err);
+          console.error("Silent wallet session recovery check failed:", err);
         }
       }
-    };
-    checkActiveWalletSession();
-  }, []);
 
-  // Sync and pre-load database entries once the wallet state is validated
-  useEffect(() => {
-    if (!urlIdParam || !walletConnected) return;
-
-    const preLoadExistingTokenDetails = async () => {
-      try {
-        const res = await fetch(`/api/tokens/calculate-price?id=${urlIdParam}`);
-        const data = await res.json();
-        
-        if (data.name) {
-          setMongoTokenId(urlIdParam);
-          setName(data.name);
-          setSymbol(data.symbol);
-          setLogoBase64(data.logoBase64);
-          setDeployedAddress(data.contractAddress);
-          setAllocations(data.driftedAllocations);
-          setUsdAllocation(data.driftedUsdAllocation);
-          setHasGenerated(true);
+      // 2. Fetch and Preload Stock Document Allocations BEFORE dropping the loading gate
+      if (urlIdParam && isSessionAuthorized) {
+        try {
+          const res = await fetch(`/api/tokens/calculate-price?id=${urlIdParam}`);
+          const data = await res.json();
           
-          // Jump straight to the allocation sliders
-          setStep(2); 
+          if (data.name) {
+            setMongoTokenId(urlIdParam);
+            setName(data.name);
+            setSymbol(data.symbol);
+            setLogoBase64(data.logoBase64);
+            setDeployedAddress(data.contractAddress);
+            setAllocations(data.driftedAllocations);
+            setUsdAllocation(data.driftedUsdAllocation);
+            setHasGenerated(true);
+            
+            // 🚀 Force change to Step 2 while the loading shield is still up!
+            setStep(2); 
+          }
+        } catch (err) {
+          console.error("Failed to pre-load allocation settings from database:", err);
         }
-      } catch (err) {
-        console.error("Failed to pre-load parameters:", err);
       }
+
+      // 3. Everything is prepared and configured. Safe to lower the loading shield.
+      setIsInitializing(false);
     };
 
-    preLoadExistingTokenDetails();
-  }, [urlIdParam, walletConnected]);
+    initializeApplicationWorkspace();
+  }, [urlIdParam]);
 
   const handleWalletLink = async () => {
     if ((window as any).ethereum) {
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const accounts = await provider.send("eth_requestAccounts", []);
-      setUserAddress(accounts[0]);
-      setWalletConnected(true);
+      try {
+        const provider = new ethers.BrowserProvider((window as any).ethereum);
+        const accounts = await provider.send("eth_requestAccounts", []);
+        if (accounts && accounts.length > 0) {
+          setUserAddress(accounts[0]);
+          setWalletConnected(true);
+          localStorage.setItem('synthetic_wallet_address', accounts[0]);
+        }
+      } catch (err) {
+        console.error("User cancelled link sequence:", err);
+      }
     } else {
       alert("Please initialize a browser wallet extension.");
     }
@@ -189,6 +208,14 @@ function WizardFormContent() {
 
   const pctChange = (livePrice - 1.00) * 100;
 
+  if (isInitializing) {
+    return (
+      <div className="p-8 max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl mt-16 shadow-md text-center text-sm font-medium text-slate-400 animate-pulse">
+        Restoring wallet authorization session credentials...
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl mt-16 shadow-md text-slate-800">
       <div className="flex justify-between items-center mb-6">
@@ -254,7 +281,7 @@ function WizardFormContent() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => { if (urlIdParam) { window.location.href = '/tokens'; } else { setStep(1); } }} className="w-1/4 border py-2.5 rounded-xl">
+                <button onClick={() => { window.location.href = '/tokens'; }} className="w-1/4 border py-2.5 rounded-xl">
                   Cancel
                 </button>
                 <button onClick={dispatchTokenGenerationCycle} className="w-3/4 bg-indigo-600 text-white py-2.5 rounded-xl font-bold shadow-sm">
@@ -299,7 +326,7 @@ function WizardFormContent() {
 
 export default function TokenWizard() {
   return (
-    <Suspense fallback={<div className="text-center p-20 text-slate-400">Loading compilation environment parameters...</div>}>
+    <Suspense fallback={<div className="text-center p-20 text-slate-400">Loading layout parameters...</div>}>
       <WizardFormContent />
     </Suspense>
   );
