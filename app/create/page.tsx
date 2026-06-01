@@ -14,7 +14,7 @@ function WizardFormContent() {
   const urlIdParam = searchParams.get('id');
 
   const [step, setStep] = useState(1);
-  const [isInitializing, setIsInitializing] = useState(true); // Gated shield
+  const [isInitializing, setIsInitializing] = useState(true); 
   const [walletConnected, setWalletConnected] = useState(false);
   const [userAddress, setUserAddress] = useState('');
   
@@ -23,7 +23,6 @@ function WizardFormContent() {
   const [logoBase64, setLogoBase64] = useState('');
 
   const [allocations, setAllocations] = useState<{ tokenSymbol: string; percentage: number }[]>([]);
-  const [selectedAsset, setSelectedAsset] = useState(TOP_20_STOCKS[0]);
   const [usdAllocation, setUsdAllocation] = useState(100);
   const [hasGenerated, setHasGenerated] = useState(false);
 
@@ -31,27 +30,19 @@ function WizardFormContent() {
   const [mongoTokenId, setMongoTokenId] = useState('');
   const [livePrice, setLivePrice] = useState<number>(1.00);
 
-  // 🚀 Unified Lifecycle Pipeline: Handles wallet verification and database preloads sequentially
+  // Auto-Connection & Session Memory Hook
   useEffect(() => {
-    const initializeApplicationWorkspace = async () => {
-      let activeSessionAddress = '';
-      let isSessionAuthorized = false;
-
-      // 1. Resolve Wallet Connection Session Context
+    const checkActiveWalletSession = async () => {
       if ((window as any).ethereum) {
         try {
           const cachedAddress = localStorage.getItem('synthetic_wallet_address');
           const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
           
           if (accounts && accounts.length > 0) {
-            activeSessionAddress = accounts[0];
-            isSessionAuthorized = true;
             setUserAddress(accounts[0]);
             setWalletConnected(true);
             localStorage.setItem('synthetic_wallet_address', accounts[0]);
           } else if (cachedAddress) {
-            activeSessionAddress = cachedAddress;
-            isSessionAuthorized = true;
             setUserAddress(cachedAddress);
             setWalletConnected(true);
           }
@@ -59,37 +50,38 @@ function WizardFormContent() {
           console.error("Silent wallet session recovery check failed:", err);
         }
       }
-
-      // 2. Fetch and Preload Stock Document Allocations BEFORE dropping the loading gate
-      if (urlIdParam && isSessionAuthorized) {
-        try {
-          const res = await fetch(`/api/tokens/calculate-price?id=${urlIdParam}`);
-          const data = await res.json();
-          
-          if (data.name) {
-            setMongoTokenId(urlIdParam);
-            setName(data.name);
-            setSymbol(data.symbol);
-            setLogoBase64(data.logoBase64);
-            setDeployedAddress(data.contractAddress);
-            setAllocations(data.driftedAllocations);
-            setUsdAllocation(data.driftedUsdAllocation);
-            setHasGenerated(true);
-            
-            // 🚀 Force change to Step 2 while the loading shield is still up!
-            setStep(2); 
-          }
-        } catch (err) {
-          console.error("Failed to pre-load allocation settings from database:", err);
-        }
-      }
-
-      // 3. Everything is prepared and configured. Safe to lower the loading shield.
       setIsInitializing(false);
     };
+    checkActiveWalletSession();
+  }, []);
 
-    initializeApplicationWorkspace();
-  }, [urlIdParam]);
+  // Sync and pre-load database entries once the wallet state is validated
+  useEffect(() => {
+    if (!urlIdParam || !walletConnected) return;
+
+    const preLoadExistingTokenDetails = async () => {
+      try {
+        const res = await fetch(`/api/tokens/calculate-price?id=${urlIdParam}`);
+        const data = await res.json();
+        
+        if (data.name) {
+          setMongoTokenId(urlIdParam);
+          setName(data.name);
+          setSymbol(data.symbol);
+          setLogoBase64(data.logoBase64);
+          setDeployedAddress(data.contractAddress);
+          setAllocations(data.driftedAllocations);
+          setUsdAllocation(data.driftedUsdAllocation);
+          setHasGenerated(true);
+          setStep(2); 
+        }
+      } catch (err) {
+        console.error("Failed to pre-load allocation settings from database:", err);
+      }
+    };
+
+    preLoadExistingTokenDetails();
+  }, [urlIdParam, walletConnected]);
 
   const handleWalletLink = async () => {
     if ((window as any).ethereum) {
@@ -159,13 +151,35 @@ function WizardFormContent() {
     }
   };
 
+  // 🚀 Modified Add Handler: Picks the next unassigned stock ticker and populates an inline row instantly
   const addAssetRow = () => {
     if (usdAllocation <= 0) {
-      alert("No available space! Convert tracking items back to USD.");
+      alert("No available tracking space remaining! Convert active holdings back to USD to expand.");
       return;
     }
-    if (allocations.find(item => item.tokenSymbol === selectedAsset)) return;
-    setAllocations([...allocations, { tokenSymbol: selectedAsset, percentage: 1 }]);
+
+    // Identify the first stock ticker option that hasn't been added to the allocation map yet
+    const availableStock = TOP_20_STOCKS.find(
+      stock => !allocations.some(item => item.tokenSymbol === stock)
+    );
+
+    if (!availableStock) {
+      alert("All available top 20 stocks have already been assigned to your index portfolio.");
+      return;
+    }
+
+    setAllocations([...allocations, { tokenSymbol: availableStock, percentage: 1 }]);
+  };
+
+  // 🚀 New Inline Event Listener: Handles switching tickers from inside the active card rows
+  const handleInlineTickerChange = (index: number, newSymbol: string) => {
+    if (allocations.some((item, i) => item.tokenSymbol === newSymbol && i !== index)) {
+      alert("This stock ticker is already assigned to another allocation track row.");
+      return;
+    }
+    const workingSet = [...allocations];
+    workingSet[index].tokenSymbol = newSymbol;
+    setAllocations(workingSet);
   };
 
   const adjustPercentageSlider = (index: number, val: number) => {
@@ -250,29 +264,64 @@ function WizardFormContent() {
           {/* STEP 2 */}
           {step === 2 && (
             <div className="space-y-6">
-              <div className="flex gap-2">
-                <select value={selectedAsset} onChange={e=>setSelectedAsset(e.target.value)} className="flex-1 p-2.5 border rounded-lg bg-white">
-                  {TOP_20_STOCKS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <button onClick={addAssetRow} className="bg-emerald-600 text-white px-5 rounded-lg text-sm font-medium">Add Ticker</button>
+              {/* 🚀 UI Change: Global dropdown is removed. Only the action button remains visible at first. */}
+              <div className="flex justify-center">
+                <button 
+                  onClick={addAssetRow} 
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-sm"
+                >
+                  ＋ Add Ticker Track
+                </button>
               </div>
 
-              <div className="space-y-4 max-h-64 overflow-y-auto">
+              {/* Allocation List Pipeline */}
+              <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
                 {allocations.map((asset, index) => (
-                  <div key={asset.tokenSymbol} className="p-4 border rounded-xl bg-slate-50 space-y-2">
-                    <div className="flex justify-between text-sm font-bold">
-                      <span>{asset.tokenSymbol} Weight</span>
-                      <span className="text-indigo-600">{asset.percentage}%</span>
+                  <div key={index} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      
+                      {/* 🚀 UI Change: Selection Dropdown menu is now contextually made available here inside the row along with the slider! */}
+                      <select 
+                        value={asset.tokenSymbol} 
+                        onChange={(e) => handleInlineTickerChange(index, e.target.value)}
+                        className="p-1.5 border border-slate-300 rounded-lg bg-white font-bold text-xs text-slate-700 focus:outline-indigo-500 shadow-sm"
+                      >
+                        {TOP_20_STOCKS.map(tickerOption => {
+                          const isAssignedElsewhere = allocations.some((a, i) => a.tokenSymbol === tickerOption && i !== index);
+                          return (
+                            <option key={tickerOption} value={tickerOption} disabled={isAssignedElsewhere}>
+                              {tickerOption} Asset Weight
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      <span className="text-indigo-600 font-bold font-mono text-sm">{asset.percentage}%</span>
                     </div>
-                    <input type="range" min="1" max="100" value={asset.percentage} onChange={e=>adjustPercentageSlider(index, parseInt(e.target.value))} className="w-full accent-indigo-600" />
-                    <button onClick={()=>convertPositionToUsd(index)} className="text-xs bg-amber-500 text-white px-3 py-1 rounded-md font-medium">
-                      Convert To USD
-                    </button>
+
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="100" 
+                      value={asset.percentage} 
+                      onChange={e=>adjustPercentageSlider(index, parseInt(e.target.value))} 
+                      className="w-full accent-indigo-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg appearance-none" 
+                    />
+
+                    <div className="pt-1">
+                      <button 
+                        onClick={()=>convertPositionToUsd(index)} 
+                        className="text-[11px] bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-md font-semibold transition"
+                      >
+                        Convert To USD
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
 
-              <div className="p-4 bg-slate-100 border rounded-xl">
+              {/* USD Anchor Level Box */}
+              <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl">
                 <div className="flex justify-between text-sm font-bold text-slate-700">
                   <span>USD Cash Pool (Residual Anchor)</span>
                   <span>{usdAllocation}%</span>
@@ -281,10 +330,10 @@ function WizardFormContent() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => { window.location.href = '/tokens'; }} className="w-1/4 border py-2.5 rounded-xl">
+                <button onClick={() => { window.location.href = '/tokens'; }} className="w-1/4 border border-slate-300 bg-white hover:bg-slate-50 py-2.5 rounded-xl text-sm font-medium transition">
                   Cancel
                 </button>
-                <button onClick={dispatchTokenGenerationCycle} className="w-3/4 bg-indigo-600 text-white py-2.5 rounded-xl font-bold shadow-sm">
+                <button onClick={dispatchTokenGenerationCycle} className="w-3/4 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold shadow-sm transition">
                   {hasGenerated ? 'Update Allocation' : 'Generate Token'}
                 </button>
               </div>
