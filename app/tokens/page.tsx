@@ -44,7 +44,7 @@ export default function TokensDirectory() {
           <p className="text-xs text-slate-400 mt-0.5">Real-time value tracked via the Alpaca Market API Engine</p>
         </div>
         <Link href="/create" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2 rounded-xl shadow transition">
-          ← Create Token Studio
+          ← Create A Token
         </Link>
       </div>
 

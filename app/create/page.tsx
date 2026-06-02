@@ -506,9 +506,9 @@ function WizardFormContent() {
           {/* STEP 3 */}
           {step === 3 && (
             <div className="text-center space-y-6">
-              <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl font-mono text-xs break-all border border-emerald-100">
+              {/* <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl font-mono text-xs break-all border border-emerald-100">
                 Proxy Address: {deployedAddress}
-              </div>
+              </div> */}
 
               {logoBase64 && (
                 <img
@@ -538,7 +538,7 @@ function WizardFormContent() {
                 onClick={handleModifyReallocateClick}
                 className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium"
               >
-                Modify & Reallocate Engine Matrix
+                Modify & Reallocate 
               </button>
             </div>
           )}
