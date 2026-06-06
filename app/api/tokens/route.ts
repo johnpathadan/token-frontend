@@ -31,13 +31,11 @@ export async function GET() {
         // Add the residual USD liquidity anchor
         currentTotalNAV += (token.usdAllocation / 100);
 
-        // 🚀 THE CORE FIX: Grab the basePrice scaling factor from the token document
-        // Defaults cleanly to 1.0 if the token hasn't been reallocated yet
         const basePriceMultiplier = token.basePrice || 1.0;
         const finalScaledPrice = currentTotalNAV * basePriceMultiplier;
 
         // Calculate a dummy percentage tracker against its initial seed value
-        const percentageChange = (finalScaledPrice - basePriceMultiplier) * 100;
+        const percentageChange = (finalScaledPrice - 1.0) * 100;
 
         return {
           id: token._id.toString(),
@@ -46,7 +44,7 @@ export async function GET() {
           logoBase64: token.logoBase64,
           creatorAddress: token.creatorAddress,
           contractAddress: token.contractAddress,
-          price: finalScaledPrice, // 🚀 Now perfectly matches your individual view price!
+          price: finalScaledPrice,
           percentageChange: percentageChange
         };
       })
