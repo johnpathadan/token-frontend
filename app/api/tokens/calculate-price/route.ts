@@ -49,9 +49,11 @@ export async function GET(request: Request) {
 
     const driftedUsdAllocation = Math.max(0, 100 - driftedAllocations.reduce((sum: number, a: any) => sum + a.percentage, 0));
 
+    const basePriceMultiplier = token.basePrice || 1.0;
+    const finalScaledContinuousPrice = currentTotalNAV * basePriceMultiplier;
+
     return NextResponse.json({ 
-      price: currentTotalNAV,
-      // 🚀 Added metadata variables here so the wizard can initialize cleanly from a link
+      price: finalScaledContinuousPrice,
       name: token.name,
       symbol: token.symbol,
       logoBase64: token.logoBase64,

@@ -7,7 +7,18 @@ export async function POST(request: Request) {
   try {
     await connectToDatabase();
     const body = await request.json();
-    const { id, name, symbol, logoBase64, creatorAddress, allocations, usdAllocation, contractAddress } = body;
+    
+    const { 
+      id, 
+      name, 
+      symbol, 
+      logoBase64, 
+      creatorAddress, 
+      allocations, 
+      usdAllocation, 
+      contractAddress,
+      currentPrice 
+    } = body;
 
     // Fetch the latest Alpaca prices to set as the new baseline for each asset
     const allocationsWithBaselines = await Promise.all(
@@ -22,12 +33,12 @@ export async function POST(request: Request) {
     );
 
     if (id) {
-      // 🚀 Creator is reallocating: Update the existing token and reset baselines
       const updatedToken = await Token.findByIdAndUpdate(
         id,
         {
           allocations: allocationsWithBaselines,
-          usdAllocation
+          usdAllocation,
+          basePrice: currentPrice || 1.0 
         },
         { new: true }
       );
@@ -41,7 +52,8 @@ export async function POST(request: Request) {
         creatorAddress: creatorAddress.toLowerCase(),
         contractAddress,
         allocations: allocationsWithBaselines,
-        usdAllocation
+        usdAllocation,
+        basePrice: 1.0 
       });
       return NextResponse.json({ success: true, tokenId: newToken._id });
     }

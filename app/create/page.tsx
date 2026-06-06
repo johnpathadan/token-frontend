@@ -97,6 +97,9 @@ function WizardFormContent() {
           setDeployedAddress(data.contractAddress);
           setAllocations(data.driftedAllocations);
           setUsdAllocation(data.driftedUsdAllocation);
+          if (data.price) {
+            setLivePrice(data.price);
+          }
           setHasGenerated(true);
           setStep(2);
         }
@@ -176,6 +179,9 @@ function WizardFormContent() {
       if (data.driftedAllocations) {
         setAllocations(data.driftedAllocations);
         setUsdAllocation(data.driftedUsdAllocation);
+      }
+      if (data.price) {
+        setLivePrice(data.price);
       }
       setStep(2);
     } catch (err) {
@@ -289,9 +295,8 @@ function WizardFormContent() {
           (parsedLog: any) => parsedLog && parsedLog.name === "TokenCreated",
         );
 
-      const realContractAddress = event
-        && event.args ? event.args[0]
-        : "0xDeploymentError";
+      const realContractAddress =
+        event && event.args ? event.args[0] : "0xDeploymentError";
       setDeployedAddress(realContractAddress);
 
       // 5. Save the REAL contract address along with allocations to MongoDB
@@ -307,6 +312,7 @@ function WizardFormContent() {
           allocations,
           usdAllocation,
           contractAddress: realContractAddress,
+          currentPrice: livePrice,
         }),
       });
 
@@ -538,7 +544,7 @@ function WizardFormContent() {
                 onClick={handleModifyReallocateClick}
                 className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium"
               >
-                Modify & Reallocate 
+                Modify & Reallocate
               </button>
             </div>
           )}

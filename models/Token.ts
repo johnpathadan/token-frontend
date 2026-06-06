@@ -6,10 +6,11 @@ const TokenSchema = new Schema({
   logoBase64: { type: String, required: true },
   creatorAddress: { type: String, required: true },
   contractAddress: { type: String, default: '' },
+  basePrice: {type: Number, default: 1.0, required: true},
   allocations: [{
     tokenSymbol: { type: String, required: true },
     percentage: { type: Number, required: true },
-    initialPrice: { type: Number, required: true } // 🚀 Stores the stock price baseline
+    initialPrice: { type: Number, required: true }
   }],
   usdAllocation: { type: Number, required: true }
 });
