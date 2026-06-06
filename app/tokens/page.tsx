@@ -41,10 +41,10 @@ export default function TokensDirectory() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">List Of All The Coins</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Real-time value tracked via the Alpaca Market API Engine</p>
+          <p className="text-xs text-slate-400 mt-0.5">Real-time value tracked via the Alpaca Market API</p>
         </div>
         <Link href="/create" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2 rounded-xl shadow transition">
-          ← Create A Token
+          Create A Token
         </Link>
       </div>
 
@@ -59,7 +59,7 @@ export default function TokensDirectory() {
       ) : (
         /* Responsive table shell container wrapper */
         <div className="w-full overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
-          <table className="w-full text-left border-collapse min-w-[700px]">
+          <table className="w-full text-left border-collapse min-w-175">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-4 px-6">Asset Name / Symbol</th>

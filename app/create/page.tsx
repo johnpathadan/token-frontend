@@ -473,7 +473,7 @@ function WizardFormContent() {
               {/* USD Anchor Level Box */}
               <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl">
                 <div className="flex justify-between text-sm font-bold text-slate-700">
-                  <span>USD Cash Pool (Residual Anchor)</span>
+                  <span>USD Cash Pool</span>
                   <span>{usdAllocation}%</span>
                 </div>
                 <input
