@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
-export const metadata = { title: 'Synthetic Index Studio' };
+export const metadata = { title: 'RWA Token Studio' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
