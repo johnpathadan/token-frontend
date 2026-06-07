@@ -51,7 +51,8 @@ function WizardFormContent() {
   const usdAllocation = 100 - allocations.reduce((sum, item) => sum + item.percentage, 0);
 
   useEffect(() => {
-    const checkActiveWalletSession = async () => {
+    const init = async () => {
+      let connected = false;
       const ethereum = getEthereum();
       if (ethereum) {
         try {
@@ -62,44 +63,41 @@ function WizardFormContent() {
             setUserAddress(accounts[0]);
             setWalletConnected(true);
             localStorage.setItem("synthetic_wallet_address", accounts[0]);
+            connected = true;
           } else if (cachedAddress) {
             setUserAddress(cachedAddress);
             setWalletConnected(true);
+            connected = true;
           }
         } catch (err) {
           console.error("Silent wallet session recovery check failed:", err);
         }
       }
+
+      if (connected && urlIdParam) {
+        try {
+          const data = await fetchTokenData(urlIdParam);
+          if (data.name) {
+            setMongoTokenId(urlIdParam);
+            setName(data.name);
+            setSymbol(data.symbol);
+            setLogoBase64(data.logoBase64);
+            setDeployedAddress(data.contractAddress);
+            setAllocations(data.driftedAllocations);
+            if (data.price) setLivePrice(data.price);
+            setHasGenerated(true);
+            setStep(2);
+          }
+        } catch (err) {
+          console.error("Failed to pre-load allocation settings from database:", err);
+        }
+      }
+
       setIsInitializing(false);
     };
-    checkActiveWalletSession();
+
+    init();
   }, []);
-
-  useEffect(() => {
-    if (!urlIdParam || !walletConnected) return;
-
-    const preLoadExistingTokenDetails = async () => {
-      try {
-        const data = await fetchTokenData(urlIdParam);
-
-        if (data.name) {
-          setMongoTokenId(urlIdParam);
-          setName(data.name);
-          setSymbol(data.symbol);
-          setLogoBase64(data.logoBase64);
-          setDeployedAddress(data.contractAddress);
-          setAllocations(data.driftedAllocations);
-          if (data.price) setLivePrice(data.price);
-          setHasGenerated(true);
-          setStep(2);
-        }
-      } catch (err) {
-        console.error("Failed to pre-load allocation settings from database:", err);
-      }
-    };
-
-    preLoadExistingTokenDetails();
-  }, [urlIdParam, walletConnected]);
 
   const handleWalletLink = async () => {
     const ethereum = getEthereum();
@@ -317,6 +315,7 @@ function WizardFormContent() {
               >
                 Configure Allocation →
               </button>
+              <p><span className="text-red-600">Note:</span> Contract Deployed to Sepolia Testnet</p>
             </div>
           )}
 
