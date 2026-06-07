@@ -324,7 +324,7 @@ function WizardFormContent() {
               <div className="flex justify-center">
                 <button
                   onClick={addAssetRow}
-                  className="w-full bg-rose-50 hover:bg-rose-100 text-black font-bold py-2.5 rounded-xl text-sm transition shadow-sm"
+                  className="w-full bg-sky-700 hover:bg-sky-900 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-sm"
                 >
                   ＋ Add Your Asset
                 </button>
