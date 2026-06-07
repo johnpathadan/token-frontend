@@ -1,35 +1,33 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ethers } from "ethers";
 import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 
 const TOP_20_STOCKS = [
-  "AAPL",
-  "TSLA",
-  "MSFT",
-  "NVDA",
-  "AMZN",
-  "GOOGL",
-  "META",
-  "NFLX",
-  "AMD",
-  "BABA",
-  "V",
-  "WMT",
-  "JPM",
-  "UNH",
-  "MA",
-  "PG",
-  "XOM",
-  "JNJ",
-  "HD",
-  "COST",
+  "AAPL", "TSLA", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "NFLX", "AMD",
+  "BABA", "V", "WMT", "JPM", "UNH", "MA", "PG", "XOM", "JNJ", "HD", "COST",
 ];
+
+const FACTORY_ADDRESS = "0xeb980efb573a53e274c41bc4360fffa1e34fd11a";
+const FACTORY_ABI = [
+  "function createToken(string memory name, string memory symbol) external returns (address)",
+  "event TokenCreated(address tokenAddress, string name, string symbol, address creator)",
+];
+
+function getEthereum() {
+  return (window as any).ethereum;
+}
+
+async function fetchTokenData(id: string) {
+  const res = await fetch(`/api/tokens/calculate-price?id=${id}`);
+  return res.json();
+}
 
 function WizardFormContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const urlIdParam = searchParams.get("id");
 
   const [step, setStep] = useState(1);
@@ -44,26 +42,23 @@ function WizardFormContent() {
   const [allocations, setAllocations] = useState<
     { tokenSymbol: string; percentage: number }[]
   >([]);
-  const [usdAllocation, setUsdAllocation] = useState(100);
   const [hasGenerated, setHasGenerated] = useState(false);
 
   const [deployedAddress, setDeployedAddress] = useState("");
   const [mongoTokenId, setMongoTokenId] = useState("");
   const [livePrice, setLivePrice] = useState<number>(1.0);
 
-  // Auto-Connection & Session Memory Hook
+  const usdAllocation = 100 - allocations.reduce((sum, item) => sum + item.percentage, 0);
+
   useEffect(() => {
     const checkActiveWalletSession = async () => {
-      if ((window as any).ethereum) {
+      const ethereum = getEthereum();
+      if (ethereum) {
         try {
-          const cachedAddress = localStorage.getItem(
-            "synthetic_wallet_address",
-          );
-          const accounts = await (window as any).ethereum.request({
-            method: "eth_accounts",
-          });
+          const cachedAddress = localStorage.getItem("synthetic_wallet_address");
+          const accounts = await ethereum.request({ method: "eth_accounts" });
 
-          if (accounts && accounts.length > 0) {
+          if (accounts?.length > 0) {
             setUserAddress(accounts[0]);
             setWalletConnected(true);
             localStorage.setItem("synthetic_wallet_address", accounts[0]);
@@ -80,14 +75,12 @@ function WizardFormContent() {
     checkActiveWalletSession();
   }, []);
 
-  // Sync and pre-load database entries once the wallet state is validated
   useEffect(() => {
     if (!urlIdParam || !walletConnected) return;
 
     const preLoadExistingTokenDetails = async () => {
       try {
-        const res = await fetch(`/api/tokens/calculate-price?id=${urlIdParam}`);
-        const data = await res.json();
+        const data = await fetchTokenData(urlIdParam);
 
         if (data.name) {
           setMongoTokenId(urlIdParam);
@@ -96,18 +89,12 @@ function WizardFormContent() {
           setLogoBase64(data.logoBase64);
           setDeployedAddress(data.contractAddress);
           setAllocations(data.driftedAllocations);
-          setUsdAllocation(data.driftedUsdAllocation);
-          if (data.price) {
-            setLivePrice(data.price);
-          }
+          if (data.price) setLivePrice(data.price);
           setHasGenerated(true);
           setStep(2);
         }
       } catch (err) {
-        console.error(
-          "Failed to pre-load allocation settings from database:",
-          err,
-        );
+        console.error("Failed to pre-load allocation settings from database:", err);
       }
     };
 
@@ -115,11 +102,12 @@ function WizardFormContent() {
   }, [urlIdParam, walletConnected]);
 
   const handleWalletLink = async () => {
-    if ((window as any).ethereum) {
+    const ethereum = getEthereum();
+    if (ethereum) {
       try {
-        const provider = new ethers.BrowserProvider((window as any).ethereum);
+        const provider = new ethers.BrowserProvider(ethereum);
         const accounts = await provider.send("eth_requestAccounts", []);
-        if (accounts && accounts.length > 0) {
+        if (accounts?.length > 0) {
           setUserAddress(accounts[0]);
           setWalletConnected(true);
           localStorage.setItem("synthetic_wallet_address", accounts[0]);
@@ -142,111 +130,67 @@ function WizardFormContent() {
   };
 
   useEffect(() => {
-    const activeAllocatedWeightSum = allocations.reduce(
-      (sum, item) => sum + item.percentage,
-      0,
-    );
-    setUsdAllocation(100 - activeAllocatedWeightSum);
-  }, [allocations]);
-
-  useEffect(() => {
     if (step !== 3 || !mongoTokenId) return;
 
     const queryLiveEnginePrice = async () => {
       try {
-        const res = await fetch(
-          `/api/tokens/calculate-price?id=${mongoTokenId}`,
-        );
-        const data = await res.json();
-        if (data.price) {
-          setLivePrice(data.price);
-        }
+        const data = await fetchTokenData(mongoTokenId);
+        if (data.price) setLivePrice(data.price);
       } catch (err) {
         console.error("Pricing fetch failure: ", err);
       }
     };
 
     queryLiveEnginePrice();
-    const tickerThreadInstance = setInterval(queryLiveEnginePrice, 5000);
-
-    return () => clearInterval(tickerThreadInstance);
+    const interval = setInterval(queryLiveEnginePrice, 5000);
+    return () => clearInterval(interval);
   }, [step, mongoTokenId]);
 
   const handleModifyReallocateClick = async () => {
     try {
-      const res = await fetch(`/api/tokens/calculate-price?id=${mongoTokenId}`);
-      const data = await res.json();
-      if (data.driftedAllocations) {
-        setAllocations(data.driftedAllocations);
-        setUsdAllocation(data.driftedUsdAllocation);
-      }
-      if (data.price) {
-        setLivePrice(data.price);
-      }
-      setStep(2);
+      const data = await fetchTokenData(mongoTokenId);
+      if (data.driftedAllocations) setAllocations(data.driftedAllocations);
+      if (data.price) setLivePrice(data.price);
     } catch (err) {
       console.error("Could not load drifted allocations:", err);
-      setStep(2);
     }
+    setStep(2);
   };
 
-  // 🚀 Modified Add Handler: Picks the next unassigned stock ticker and populates an inline row instantly
   const addAssetRow = () => {
     if (usdAllocation <= 0) {
-      alert(
-        "No available tracking space remaining! Convert active holdings back to USD to expand.",
-      );
+      alert("No available tracking space remaining! Convert active holdings back to USD to expand.");
       return;
     }
 
-    // Identify the first stock ticker option that hasn't been added to the allocation map yet
     const availableStock = TOP_20_STOCKS.find(
       (stock) => !allocations.some((item) => item.tokenSymbol === stock),
     );
 
     if (!availableStock) {
-      alert(
-        "All available top 20 stocks have already been assigned to your index portfolio.",
-      );
+      alert("All available top 20 stocks have already been assigned to your index portfolio.");
       return;
     }
 
-    setAllocations([
-      ...allocations,
-      { tokenSymbol: availableStock, percentage: 1 },
-    ]);
+    setAllocations([...allocations, { tokenSymbol: availableStock, percentage: 1 }]);
   };
 
-  // 🚀 New Inline Event Listener: Handles switching tickers from inside the active card rows
   const handleInlineTickerChange = (index: number, newSymbol: string) => {
-    if (
-      allocations.some(
-        (item, i) => item.tokenSymbol === newSymbol && i !== index,
-      )
-    ) {
-      alert(
-        "This stock ticker is already assigned to another allocation track row.",
-      );
+    if (allocations.some((item, i) => item.tokenSymbol === newSymbol && i !== index)) {
+      alert("This stock ticker is already assigned to another allocation track row.");
       return;
     }
-    const workingSet = [...allocations];
-    workingSet[index].tokenSymbol = newSymbol;
-    setAllocations(workingSet);
+    setAllocations(allocations.map((item, i) =>
+      i === index ? { ...item, tokenSymbol: newSymbol } : item,
+    ));
   };
 
   const adjustPercentageSlider = (index: number, val: number) => {
-    const workingSet = [...allocations];
-    const trackingComplementarySum = workingSet.reduce(
-      (s, item, i) => (i === index ? s : s + item.percentage),
-      0,
-    );
-
-    if (trackingComplementarySum + val > 100) {
-      workingSet[index].percentage = 100 - trackingComplementarySum;
-    } else {
-      workingSet[index].percentage = val;
-    }
-    setAllocations(workingSet);
+    const otherSum = allocations.reduce((s, item, i) => (i === index ? s : s + item.percentage), 0);
+    const clamped = otherSum + val > 100 ? 100 - otherSum : val;
+    setAllocations(allocations.map((item, i) =>
+      i === index ? { ...item, percentage: clamped } : item,
+    ));
   };
 
   const convertPositionToUsd = (index: number) => {
@@ -255,51 +199,26 @@ function WizardFormContent() {
 
   const dispatchTokenGenerationCycle = async () => {
     try {
-      // 1. Set up the Ethers provider and signer from the user's connected wallet
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const provider = new ethers.BrowserProvider(getEthereum());
       const signer = await provider.getSigner();
 
-      // 2. Point to your deployed Factory Contract on Base Sepolia
-      const FACTORY_ADDRESS = "0xeb980efb573a53e274c41bc4360fffa1e34fd11a";
-      const FACTORY_ABI = [
-        "function createToken(string memory name, string memory symbol) external returns (address)",
-        "event TokenCreated(address tokenAddress, string name, string symbol, address creator)",
-      ];
-
-      const factoryContract = new ethers.Contract(
-        FACTORY_ADDRESS,
-        FACTORY_ABI,
-        signer,
-      );
-
-      // 3. Trigger the on-chain deployment transaction
+      const factoryContract = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
       const tx = await factoryContract.createToken(name, symbol);
-
-      // Wait for the block to be mined on Base Sepolia
       const receipt = await tx.wait();
 
-      // 4. Extract the brand new token contract address from the transaction receipt logs
-      // (Ethers parses the 'TokenCreated' event emitted by our Factory)
       const event = receipt.logs
         .map((log: any) => {
           try {
-            return factoryContract.interface.parseLog({
-              topics: [...log.topics],
-              data: log.data,
-            });
+            return factoryContract.interface.parseLog({ topics: [...log.topics], data: log.data });
           } catch {
             return null;
           }
         })
-        .find(
-          (parsedLog: any) => parsedLog && parsedLog.name === "TokenCreated",
-        );
+        .find((parsedLog: any) => parsedLog?.name === "TokenCreated");
 
-      const realContractAddress =
-        event && event.args ? event.args[0] : "0xDeploymentError";
+      const realContractAddress = event?.args?.[0] ?? "0xDeploymentError";
       setDeployedAddress(realContractAddress);
 
-      // 5. Save the REAL contract address along with allocations to MongoDB
       const res = await fetch("/api/tokens/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -367,7 +286,6 @@ function WizardFormContent() {
             Operator: {userAddress}
           </p>
 
-          {/* STEP 1 */}
           {step === 1 && (
             <div className="space-y-4">
               <input
@@ -402,10 +320,8 @@ function WizardFormContent() {
             </div>
           )}
 
-          {/* STEP 2 */}
           {step === 2 && (
             <div className="space-y-6">
-              {/* 🚀 UI Change: Global dropdown is removed. Only the action button remains visible at first. */}
               <div className="flex justify-center">
                 <button
                   onClick={addAssetRow}
@@ -415,7 +331,6 @@ function WizardFormContent() {
                 </button>
               </div>
 
-              {/* Allocation List Pipeline */}
               <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
                 {allocations.map((asset, index) => (
                   <div
@@ -423,29 +338,22 @@ function WizardFormContent() {
                     className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 shadow-sm"
                   >
                     <div className="flex justify-between items-center">
-                      {/* 🚀 UI Change: Selection Dropdown menu is now contextually made available here inside the row along with the slider! */}
                       <select
                         value={asset.tokenSymbol}
-                        onChange={(e) =>
-                          handleInlineTickerChange(index, e.target.value)
-                        }
+                        onChange={(e) => handleInlineTickerChange(index, e.target.value)}
                         className="p-1.5 border border-slate-300 rounded-lg bg-white font-bold text-xs text-slate-700 focus:outline-indigo-500 shadow-sm"
                       >
-                        {TOP_20_STOCKS.map((tickerOption) => {
-                          const isAssignedElsewhere = allocations.some(
-                            (a, i) =>
-                              a.tokenSymbol === tickerOption && i !== index,
-                          );
-                          return (
-                            <option
-                              key={tickerOption}
-                              value={tickerOption}
-                              disabled={isAssignedElsewhere}
-                            >
-                              {tickerOption} Allocation
-                            </option>
-                          );
-                        })}
+                        {TOP_20_STOCKS.map((tickerOption) => (
+                          <option
+                            key={tickerOption}
+                            value={tickerOption}
+                            disabled={allocations.some(
+                              (a, i) => a.tokenSymbol === tickerOption && i !== index,
+                            )}
+                          >
+                            {tickerOption} Allocation
+                          </option>
+                        ))}
                       </select>
 
                       <span className="text-indigo-600 font-bold font-mono text-sm">
@@ -458,9 +366,7 @@ function WizardFormContent() {
                       min="1"
                       max="100"
                       value={asset.percentage}
-                      onChange={(e) =>
-                        adjustPercentageSlider(index, parseInt(e.target.value))
-                      }
+                      onChange={(e) => adjustPercentageSlider(index, parseInt(e.target.value))}
                       className="w-full accent-indigo-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg appearance-none"
                     />
 
@@ -476,7 +382,6 @@ function WizardFormContent() {
                 ))}
               </div>
 
-              {/* USD Anchor Level Box */}
               <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl">
                 <div className="flex justify-between text-sm font-bold text-slate-700">
                   <span>USD Cash Pool</span>
@@ -492,9 +397,7 @@ function WizardFormContent() {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    window.location.href = "/tokens";
-                  }}
+                  onClick={() => router.push("/tokens")}
                   className="w-1/4 border border-slate-300 bg-white hover:bg-slate-50 py-2.5 rounded-xl text-sm font-medium transition"
                 >
                   Cancel
@@ -509,13 +412,8 @@ function WizardFormContent() {
             </div>
           )}
 
-          {/* STEP 3 */}
           {step === 3 && (
             <div className="text-center space-y-6">
-              {/* <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl font-mono text-xs break-all border border-emerald-100">
-                Proxy Address: {deployedAddress}
-              </div> */}
-
               {logoBase64 && (
                 <img
                   src={logoBase64}
@@ -557,9 +455,7 @@ function WizardFormContent() {
 export default function TokenWizard() {
   return (
     <Suspense
-      fallback={
-        <div className="text-center p-20 text-slate-400">Loading...</div>
-      }
+      fallback={<div className="text-center p-20 text-slate-400">Loading...</div>}
     >
       <WizardFormContent />
     </Suspense>

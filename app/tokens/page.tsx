@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {Spinner} from "@/components/ui/spinner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface TokenDirectoryItem {
   id: string;
@@ -14,6 +14,10 @@ interface TokenDirectoryItem {
   percentageChange: number;
 }
 
+function truncateAddress(addr: string) {
+  return addr ? `${addr.slice(0, 7)}...` : '0x000...';
+}
+
 export default function TokensDirectory() {
   const [tokens, setTokens] = useState<TokenDirectoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,9 +27,7 @@ export default function TokensDirectory() {
       try {
         const res = await fetch('/api/tokens');
         const data = await res.json();
-        if (data.success) {
-          setTokens(data.tokens);
-        }
+        if (data.success) setTokens(data.tokens);
       } catch (err) {
         console.error("Failed to load registry parameters:", err);
       } finally {
@@ -49,15 +51,14 @@ export default function TokensDirectory() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-sm font-medium text-slate-400 animate-pulse flex justify-center items-center">
-          <Spinner className='size-8 text-black' />
+        <div className="text-center py-20 flex justify-center items-center">
+          <Spinner className="size-8 text-black" />
         </div>
       ) : tokens.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl bg-white p-6">
           <p className="text-sm text-slate-400 font-medium">No tokens have been generated yet.</p>
         </div>
       ) : (
-        /* Responsive table shell container wrapper */
         <div className="w-full overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
           <table className="w-full text-left border-collapse min-w-175">
             <thead>
@@ -71,22 +72,16 @@ export default function TokensDirectory() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {tokens.map((token) => {
-                // Truncate logic: Keeps the '0x' protocol prefix followed by the first 5 numbers
-                const formattedCreator = token.creatorAddress 
-                  ? `${token.creatorAddress.substring(0, 7)}...` 
-                  : '0x000...';
-
+                const isPositive = token.percentageChange >= 0;
                 return (
                   <tr key={token.id} className="hover:bg-slate-50/50 transition">
-                    
-                    {/* 1st Column: Asset Profile Details */}
                     <td className="py-4 px-6 font-medium text-slate-900">
                       <div className="flex items-center gap-3">
                         {token.logoBase64 ? (
                           <img src={token.logoBase64} alt={token.name} className="w-8 h-8 rounded-full object-cover border bg-slate-50" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-xs">
-                            {token.symbol.substring(0, 2)}
+                            {token.symbol.slice(0, 2)}
                           </div>
                         )}
                         <div className="flex items-center gap-2">
@@ -98,24 +93,20 @@ export default function TokensDirectory() {
                       </div>
                     </td>
 
-                    {/* 2nd Column: Real-Time Valuation Matrix */}
                     <td className="py-4 px-6 text-right font-mono font-bold text-slate-900">
                       ${token.price.toFixed(4)}
                     </td>
 
-                    {/* 3rd Column: Vector Delta Flag Tracking */}
-                    <td className={`py-4 px-6 text-right font-bold font-mono ${token.percentageChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {token.percentageChange >= 0 ? '▲ +' : '▼ '}{token.percentageChange.toFixed(2)}%
+                    <td className={`py-4 px-6 text-right font-bold font-mono ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {isPositive ? '▲ +' : '▼ '}{token.percentageChange.toFixed(2)}%
                     </td>
 
-                    {/* 4th Column: Owner Mask */}
                     <td className="py-4 px-6 font-mono text-xs text-slate-500" title={token.creatorAddress}>
-                      {formattedCreator}
+                      {truncateAddress(token.creatorAddress)}
                     </td>
 
-                    {/* 5th Column: Reallocation Target Shortcut */}
                     <td className="py-4 px-3 text-center">
-                      <Link 
+                      <Link
                         href={`/create?id=${token.id}`}
                         className="inline-block bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-4 py-2 rounded-xl transition shadow-sm"
                       >
@@ -123,16 +114,14 @@ export default function TokensDirectory() {
                       </Link>
                     </td>
 
-                    {/* 6th Column: Blank Interaction Hub */}
                     <td className="py-4 pr-6 pl-3 text-center">
-                      <button 
+                      <button
                         onClick={() => alert(`Prototype Mode: Market buy interface for ${token.symbol} is currently disabled.`)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
                       >
                         Buy
                       </button>
                     </td>
-
                   </tr>
                 );
               })}
