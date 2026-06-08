@@ -315,7 +315,7 @@ function WizardFormContent() {
               >
                 Configure Allocation →
               </button>
-              <p><span className="text-red-600">Note:</span> Contract Deployed to Sepolia Testnet</p>
+              <p><span className="text-red-600 font-bold">Note:</span> Contract Deployed to Sepolia Testnet</p>
             </div>
           )}
 

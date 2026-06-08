@@ -10,15 +10,15 @@ export default function Home() {
           </h1>
         </div>
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-center tracking-tight text-amber-100">
-          Deploy your own fund backed token from anywhere
+          Deploy your own equity backed token from anywhere
         </h2>
         <h4 className="text-lg sm:text-xl md:text-2xl text-center text-amber-100 font-normal leading-relaxed">
           Create your own custom, U.S. stock-backed index token in minutes, with
-          fully dynamic allocations you can upgrade at any time
+          fully dynamic allocations that you can upgrade at any time
         </h4>
         <div className="bg-amber-100 rounded-xl px-6 py-3 shadow-md border border-gray-100 transition-transform hover:scale-105 duration-200">
           <h6 className="text-sm sm:text-base font-semibold text-black tracking-wide uppercase">
-            <Link href="/create">try out our prototype</Link>
+            <Link href="/create">try out the prototype</Link>
           </h6>
         </div>
       </div>
