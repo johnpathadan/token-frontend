@@ -341,7 +341,7 @@ function WizardFormContent() {
       ) : (
         <div>
           <p className="text-xs text-center font-mono text-black mb-4">
-            Operator: {userAddress}
+            Dev Address: {userAddress}
           </p>
 
           {step === 1 && (
@@ -451,7 +451,7 @@ function WizardFormContent() {
 
               <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl">
                 <div className="flex justify-between text-sm font-bold text-slate-700">
-                  <span>USD Cash Pool</span>
+                  <span>USD Reserve</span>
                   <span>{usdAllocation}%</span>
                 </div>
                 <input
