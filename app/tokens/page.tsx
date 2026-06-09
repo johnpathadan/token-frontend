@@ -42,7 +42,7 @@ export default function TokensDirectory() {
     <div className="p-8 max-w-5xl mx-auto mt-12 text-slate-800">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">List Of All The Coins</h1>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">List Of Tokens</h1>
           <p className="text-xs text-slate-400 mt-0.5">Real-time value tracked via the Alpaca Market API</p>
         </div>
         <Link href="/create" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2 rounded-xl shadow transition">

@@ -451,7 +451,7 @@ function WizardFormContent() {
 
               <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl">
                 <div className="flex justify-between text-sm font-bold text-slate-700">
-                  <span>USD Reserve</span>
+                  <span>USD/USDC Reserve</span>
                   <span>{usdAllocation}%</span>
                 </div>
                 <input
