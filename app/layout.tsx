@@ -1,5 +1,4 @@
 import "./globals.css";
-import Script from "next/script";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -16,20 +15,6 @@ export default function RootLayout({
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className="bg-amber-100 min-h-screen text-slate-900">
         {children}
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
-          strategy="afterInteractive"
-        />
-
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
-  `}
-        </Script>
       </body>
     </html>
   );
